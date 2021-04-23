@@ -1,0 +1,28 @@
+{
+  "name": "trello-collapse-empty-lanes",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prebuild": "rimraf web-ext-artifacts",
+    "build": "web-ext build",
+    "release": "run-s verify-up-to-date increment-version build tag push warn",
+    "verify-up-to-date": "zarro verify-up-to-date",
+    "increment-version": "run-s \"zarro increment-manifest-version\"",
+    "tag": "run-s \"zarro git-tag\"",
+    "push": "run-s \"zarro git-push\"",
+    "zarro": "zarro",
+    "warn": "node -e \"console.warn('Remember to upload the package!')\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
+    "simple-get": "^4.0.0",
+    "web-ext": "^6.1.0",
+    "yafs": "^1.13.0",
+    "zarro": "^1.91.0"
+  }
+}
