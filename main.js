@@ -15,6 +15,7 @@
     `${cardListSelector}.collapsed .list-header-target { transform: rotate(90deg); }`,
     `${cardListSelector}.collapsed .list-header-name { transform: rotate(90deg) }`,
     ".collapsed .js-add-a-card, .collapsed .icon-add, .collapsed .js-add-another-card, .collapsed .list-header-extras-limit-badge { display: none }",
+    "a.list-card.collapsed { display: none !important }",
     ".collapsed .list-header-num-cards { transform: rotate(270deg); font-size: smaller; white-space: nowrap }",
   ].join("\n"));
 
@@ -72,6 +73,10 @@
     }
     defineDataProp(el);
     el.classList.remove("collapsed");
+    setTimeout(() => {
+      Array.from(el.querySelectorAll("a.list-card.collapsed"))
+        .forEach(card => card.classList.remove("collapsed"));
+    }, 0);
   }
 
   function collapse(el) {
@@ -83,6 +88,12 @@
     }
     defineDataProp(el);
     el.classList.add("collapsed");
+    setTimeout(() => {
+      const cards = Array.from(el.querySelectorAll("a.list-card"));
+      cards.forEach(card => {
+        card.classList.add("collapsed");
+      });
+    }, 0);
   }
 
   function collapseIfEmpty(el) {
@@ -161,6 +172,7 @@
   composerObserver.observe(document, { childList: false, attributes: true, subtree: true });
 
   const scheduled = new Set();
+
   function scheduleCollapseCheckForClosestWrapper(subEl) {
     scheduleCollapseCheck(subEl.closest(cardListSelector));
   }
