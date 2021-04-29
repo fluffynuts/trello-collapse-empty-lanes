@@ -10,7 +10,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://trello.com/b/*"
+        "https://trello.com/*"
       ],
       "js": [
         "main.js"
