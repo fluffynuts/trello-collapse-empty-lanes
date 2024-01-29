@@ -3,10 +3,10 @@
     if (!document.body.getAttribute("debug")) {
       return;
     }
-    if (typeof(args[0]) !== "string") {
+    if (typeof (args[0]) !== "string") {
       args[0] = JSON.stringify(args[0]);
     }
-    args[0] = `[${timestamp()}] ${args[0]}`;
+    args[0] = `[${ timestamp() }] ${ args[0] }`;
     console.log.apply(console, args);
   }
 
@@ -14,6 +14,8 @@
   "use strict";
   const
     cardListClass = "list-wrapper",
+    composerSelector = "[data-testid=list-card-composer-textarea]",
+    closeButtonSelector = "[data-testid=list-card-composer-cancel-button]",
     cardListSelector = `li[data-testid=${ cardListClass }]`;
 
   const styleTag = document.createElement("style");
@@ -27,6 +29,7 @@
     `${ cardListSelector }.collapsed .list-header-name { transform: rotate(90deg) }`,
     `${ cardListSelector }.collapsed [data-testid=list-footer] { display: none; }`,
     `${ cardListSelector }.collapsed [data-testid=list-header] p { display: none; }`,
+    `${ cardListSelector }.collapsed [data-testid=list-name] { pointer-events: none; }`, // prevent the header from disappearing when clicked
     ".collapsed button[data-testid=list-add-card-button], .collapsed .icon-add, .collapsed .js-add-another-card, .collapsed .list-header-extras-limit-badge { display: none }",
     "[data-testid=list-card].collapsed { display: none !important }",
     ".collapsed .list-header-num-cards { transform: rotate(270deg); font-size: smaller; white-space: nowrap }",
@@ -50,6 +53,7 @@
   };
 
   let lastFilterData = undefined;
+
   function handleFilters() {
     const k = findFilterKey();
     if (!k) {
@@ -67,11 +71,11 @@
       lastFilterData,
       stored
     })
-      if (stored !== lastFilterData) {
-        log("filters changed, applying");
-        lastFilterData = stored;
-        applyLogicToAllLanes();
-      }
+    if (stored !== lastFilterData) {
+      log("filters changed, applying");
+      lastFilterData = stored;
+      applyLogicToAllLanes();
+    }
     window.setTimeout(handleFilters, 1000);
   }
 
@@ -189,13 +193,8 @@
     const visibleCards = Array.from(el.querySelectorAll("li[data-testid=list-card]"))
       .filter(el => el.getAttribute("hidden") === null);
     const hasListCard = !!visibleCards.length;
-    const composer = el.querySelector("[data-testid=list-card-composer-textarea]");
+    const composer = el.querySelector(composerSelector);
     const composerOpen = !!composer;
-    console.log({
-      hasListCard,
-      composerOpen,
-      el
-    });
     if (hasListCard || composerOpen) {
       unCollapse(el);
     } else {
@@ -225,6 +224,38 @@
         Array.from(node.querySelectorAll("a.list-card")).forEach(el => {
           scheduleCollapseCheckForClosestWrapper(node);
         });
+
+        // add bindings for friendlier collapse/uncollapse when adding cards
+        const addButtons = Array.from(node.querySelectorAll(".js-add-card"));
+        for (const btn of addButtons) {
+          if (btn.getAttribute("bound-by-me") !== null) {
+            return;
+          }
+          btn.setAttribute("bound-by-me", "foo");
+          btn.addEventListener("click", () => {
+            applyLogicToAllLanesWhen(() => {
+              const haveComposer = !!document.querySelector(composerSelector);
+              const closeButton = document.querySelector(closeButtonSelector);
+              if (closeButton) {
+                if (closeButton.getAttribute("data-bound") === null) {
+                  closeButton.setAttribute("data-bound", "yes");
+                  closeButton.addEventListener("click", () =>
+                    applyLogicToAllLanesWhen(
+                      () => {
+                        const composer = document.querySelector(composerSelector);
+                        const button = document.querySelector(closeButtonSelector);
+                        return !composer && !button
+                      }
+                    )
+                  );
+                }
+              }
+              return haveComposer && !!closeButton;
+            });
+            window.setTimeout(applyLogicToAllLanes, 1000);
+          });
+        }
+
       });
       const removedNodes = Array.from(mutation.removedNodes);
       removedNodes.forEach(node => {
@@ -240,6 +271,16 @@
     }
   });
   observer.observe(document, { childList: true, subtree: true });
+
+  function applyLogicToAllLanesWhen(
+    test
+  ) {
+    if (test()) {
+      applyLogicToAllLanes();
+      return;
+    }
+    window.setTimeout(() => applyLogicToAllLanesWhen(test), 100);
+  }
 
   const composerObserver = new MutationObserver((mutationList, observer) => {
     for (let mutation of mutationList) {
