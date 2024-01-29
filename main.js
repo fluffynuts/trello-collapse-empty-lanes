@@ -1,34 +1,49 @@
 (function () {
+  function marker()
+  {
+    console.log(`
+-------------------
+       marker
+-------------------
+`);
+  }
   "use strict";
+  marker();
   const
     hiddenClass = "hide",
     cardListClass = "list-wrapper",
-    cardListSelector = "div." + cardListClass;
+    cardListSelector = `li[data-testid=${cardListClass}]`;
 
   const styleTag = document.createElement("style");
   styleTag.type = "text/css";
   styleTag.id = "lane-collapse";
   const textNode = document.createTextNode([
     `${cardListSelector}.collapsed { width: 50px }`,
-    `${cardListSelector}.collapsed .list-header-name-assist { display: block; transform: rotate(180deg); writing-mode: vertical-lr; font-size: small; white-space: nowrap; margin-top: 20px; }`,
+    `${cardListSelector}.collapsed [data-testid=list] { margin-top: 0px; top: 10px; display: block; transform: rotate(180deg); writing-mode: vertical-lr; font-size: small; white-space: nowrap; width: 50px; }`,
     `${cardListSelector}.collapsed textarea { display: none; }`,
     `${cardListSelector}.collapsed .list-header-target { transform: rotate(90deg); }`,
     `${cardListSelector}.collapsed .list-header-name { transform: rotate(90deg) }`,
-    ".collapsed .js-add-a-card, .collapsed .icon-add, .collapsed .js-add-another-card, .collapsed .list-header-extras-limit-badge { display: none }",
-    "a.list-card.collapsed { display: none !important }",
+    ".collapsed button[data-testid=list-add-card-button], .collapsed .icon-add, .collapsed .js-add-another-card, .collapsed .list-header-extras-limit-badge { display: none }",
+    "[data-testid=list-card].collapsed { display: none !important }",
     ".collapsed .list-header-num-cards { transform: rotate(270deg); font-size: smaller; white-space: nowrap }",
   ].join("\n"));
 
-  // console.log("adding style tag with:", textNode.textContent);
+  console.log("adding style tag with:", textNode.textContent);
   styleTag.appendChild(textNode);
   document.head.appendChild(styleTag);
 
   const handlers = {
-    mouseout: collapseIfEmpty,
+    mouseout: el => {
+      console.log("-- handle mouseout --");
+      collapseIfEmpty(el);
+    },
     dragover: unCollapse,
     dragleave: collapseIfEmpty,
-    drop: collapseIfEmpty,
-    dragend: collapseIfEmpty
+    drop: (el) => {
+      collapseIfEmpty(el)
+      Array.from(document.querySelectorAll("[data-testid=list-wrapper]"))
+        .forEach(scheduleCollapseCheck);
+    },
   };
 
   function defineDataProp(el) {
@@ -52,6 +67,7 @@
   }
 
   function autoCollapse(el) {
+    console.log("-- will auto-collapse --", el);
     defineDataProp(el);
     if (el.data.initialized) {
       return; // already auto-collapsing
@@ -68,18 +84,20 @@
   }
 
   function unCollapse(el) {
+    console.log(el.dataTransfer);
     if (!el) {
       return;
     }
     defineDataProp(el);
     el.classList.remove("collapsed");
     setTimeout(() => {
-      Array.from(el.querySelectorAll("a.list-card.collapsed"))
+      Array.from(el.querySelectorAll("li[data-testid=list-card].collapsed"))
         .forEach(card => card.classList.remove("collapsed"));
     }, 0);
   }
 
   function collapse(el) {
+    console.log("should collapse", el);
     if (!el) {
       return;
     }
@@ -89,7 +107,7 @@
     defineDataProp(el);
     el.classList.add("collapsed");
     setTimeout(() => {
-      const cards = Array.from(el.querySelectorAll("a.list-card"));
+      const cards = Array.from(el.querySelectorAll("li[data-testid=list-card]"));
       cards.forEach(card => {
         card.classList.add("collapsed");
       });
@@ -100,11 +118,21 @@
     if (!el) {
       return;
     }
-    const visibleCards = Array.from(el.querySelectorAll("a.list-card"))
+    const visibleCards = Array.from(el.querySelectorAll("li[data-testid=list-card]"))
       .filter(el => !el.classList.contains(hiddenClass));
     const hasListCard = !!visibleCards.length;
     const composer = el.querySelector("div.card-composer");
     const composerOpen = !!composer && Array.from(composer.classList).indexOf(hiddenClass) === -1;
+    console.log({
+      hasListCard,
+      composerOpen,
+      el
+    });
+    console.log({
+      hasListCard,
+      composerOpen,
+      el
+    });
     if (hasListCard || composerOpen) {
       unCollapse(el);
     } else {
@@ -159,10 +187,9 @@
         continue;
       }
       const
-        classList = new Set(Array.from(mutation.target.classList)),
-        affectsLanes = classList.has("card-composer") ||
-          classList.has("list-card") ||
-          classList.has("card-composer-container");
+        attributeNames = new Set(Array.from(mutation.target.getAttributeNames())),
+        seek = new Set([ "card-composer", "list-card", "card-composer-container" ]),
+        affectsLanes = attributeNames.has("data-testid") && seek.has(mutation.target.getAttribute("data-testid"));
       if (!affectsLanes) {
         continue;
       }

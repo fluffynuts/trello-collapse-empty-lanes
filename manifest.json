@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Trello Collapse Empty Lanes",
   "version": "1.0.3",
   "description": "Makes wide boards in Trello easier to work with by collapsing empty lanes",
