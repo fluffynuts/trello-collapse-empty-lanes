@@ -1,40 +1,43 @@
 (function () {
-  function marker()
-  {
-    console.log(`
--------------------
-       marker
--------------------
-`);
+  function log(...args) {
+    if (!document.body.getAttribute("debug")) {
+      return;
+    }
+    if (typeof(args[0]) !== "string") {
+      args[0] = JSON.stringify(args[0]);
+    }
+    args[0] = `[${timestamp()}] ${args[0]}`;
+    console.log.apply(console, args);
   }
+
+
   "use strict";
-  marker();
   const
-    hiddenClass = "hide",
     cardListClass = "list-wrapper",
-    cardListSelector = `li[data-testid=${cardListClass}]`;
+    cardListSelector = `li[data-testid=${ cardListClass }]`;
 
   const styleTag = document.createElement("style");
   styleTag.type = "text/css";
   styleTag.id = "lane-collapse";
   const textNode = document.createTextNode([
-    `${cardListSelector}.collapsed { width: 50px }`,
-    `${cardListSelector}.collapsed [data-testid=list] { margin-top: 0px; top: 10px; display: block; transform: rotate(180deg); writing-mode: vertical-lr; font-size: small; white-space: nowrap; width: 50px; }`,
-    `${cardListSelector}.collapsed textarea { display: none; }`,
-    `${cardListSelector}.collapsed .list-header-target { transform: rotate(90deg); }`,
-    `${cardListSelector}.collapsed .list-header-name { transform: rotate(90deg) }`,
+    `${ cardListSelector }.collapsed { width: 50px }`,
+    `${ cardListSelector }.collapsed [data-testid=list] { margin-top: 0px; top: 10px; display: block; transform: rotate(180deg); writing-mode: vertical-lr; font-size: small; white-space: nowrap; width: 50px; }`,
+    `${ cardListSelector }.collapsed textarea { display: none; }`,
+    `${ cardListSelector }.collapsed .list-header-target { transform: rotate(90deg); }`,
+    `${ cardListSelector }.collapsed .list-header-name { transform: rotate(90deg) }`,
+    `${ cardListSelector }.collapsed [data-testid=list-footer] { display: none; }`,
+    `${ cardListSelector }.collapsed [data-testid=list-header] p { display: none; }`,
     ".collapsed button[data-testid=list-add-card-button], .collapsed .icon-add, .collapsed .js-add-another-card, .collapsed .list-header-extras-limit-badge { display: none }",
     "[data-testid=list-card].collapsed { display: none !important }",
     ".collapsed .list-header-num-cards { transform: rotate(270deg); font-size: smaller; white-space: nowrap }",
   ].join("\n"));
 
-  console.log("adding style tag with:", textNode.textContent);
+  log("adding style tag with:", textNode.textContent);
   styleTag.appendChild(textNode);
   document.head.appendChild(styleTag);
 
   const handlers = {
     mouseout: el => {
-      console.log("-- handle mouseout --");
       collapseIfEmpty(el);
     },
     dragover: unCollapse,
@@ -45,6 +48,49 @@
         .forEach(scheduleCollapseCheck);
     },
   };
+
+  let lastFilterData = undefined;
+  function handleFilters() {
+    const k = findFilterKey();
+    if (!k) {
+      if (!!lastFilterData) {
+        lastFilterData = undefined;
+        log("filter removed, uncollapsing");
+        applyLogicToAllLanes();
+      }
+      return window.setTimeout(handleFilters, 1000);
+    }
+
+    const
+      stored = localStorage.getItem(k);
+    log({
+      lastFilterData,
+      stored
+    })
+      if (stored !== lastFilterData) {
+        log("filters changed, applying");
+        lastFilterData = stored;
+        applyLogicToAllLanes();
+      }
+    window.setTimeout(handleFilters, 1000);
+  }
+
+  function applyLogicToAllLanes() {
+    const lanes = Array.from(document.querySelectorAll(cardListSelector));
+    for (const lane of lanes) {
+      collapseIfEmpty(lane);
+    }
+  }
+
+  function findFilterKey() {
+    for (let i = 0; i < localStorage.length; i++) {
+      const test = localStorage.key(i);
+      if (test.startsWith("boardCardFilterSettings")) {
+        return test;
+      }
+    }
+    return undefined;
+  }
 
   function defineDataProp(el) {
     if (!el) {
@@ -66,8 +112,32 @@
     });
   }
 
+  function timestamp() {
+    const now = new Date();
+    return [
+      now.getFullYear(),
+      ".",
+      zeroPad(now.getMonth() + 1),
+      ".",
+      zeroPad(now.getDate()),
+      " ",
+      zeroPad(now.getHours()),
+      ":",
+      zeroPad(now.getMinutes()),
+      ":",
+      zeroPad(now.getSeconds())
+    ].join("");
+  }
+
+  function zeroPad(value) {
+    let result = `${ value }`;
+    while (result.length < 2) {
+      result = `0${ result }`
+    }
+    return result;
+  }
+
   function autoCollapse(el) {
-    console.log("-- will auto-collapse --", el);
     defineDataProp(el);
     if (el.data.initialized) {
       return; // already auto-collapsing
@@ -84,7 +154,6 @@
   }
 
   function unCollapse(el) {
-    console.log(el.dataTransfer);
     if (!el) {
       return;
     }
@@ -97,7 +166,6 @@
   }
 
   function collapse(el) {
-    console.log("should collapse", el);
     if (!el) {
       return;
     }
@@ -119,15 +187,10 @@
       return;
     }
     const visibleCards = Array.from(el.querySelectorAll("li[data-testid=list-card]"))
-      .filter(el => !el.classList.contains(hiddenClass));
+      .filter(el => el.getAttribute("hidden") === null);
     const hasListCard = !!visibleCards.length;
-    const composer = el.querySelector("div.card-composer");
-    const composerOpen = !!composer && Array.from(composer.classList).indexOf(hiddenClass) === -1;
-    console.log({
-      hasListCard,
-      composerOpen,
-      el
-    });
+    const composer = el.querySelector("[data-testid=list-card-composer-textarea]");
+    const composerOpen = !!composer;
     console.log({
       hasListCard,
       composerOpen,
@@ -236,7 +299,7 @@
     let handledThisTime = 0;
     Array.from(document.querySelectorAll(cardListSelector)).forEach(el => {
       if (startupCollapsed.indexOf(el) > -1) {
-        return;
+        return handleFilters();
       }
       handledThisTime++;
       autoCollapse(el);
@@ -246,7 +309,7 @@
       missed++;
     }
     if (missed * delay > quitAt * 1000) {
-      return;
+      return handleFilters();
     }
     window.setTimeout(initialCollapse, delay);
   }, delay);
