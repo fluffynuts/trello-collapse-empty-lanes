@@ -267,6 +267,9 @@
             document.querySelectorAll(cardListSelector)
           ).forEach(scheduleCollapseCheck);
         }
+        if (node.querySelector(composerSelector)) {
+          applyLogicToAllLanesWhen(() => !document.querySelector(composerSelector));
+        }
       });
     }
   });
